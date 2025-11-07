@@ -1,0 +1,854 @@
+Sub JobTimeH()
+
+Application.ScreenUpdating = False
+
+Dim wk As Workbook
+Set wk = ActiveWorkbook
+Dim n As Integer
+
+i = 0
+
+Dim Calc As String
+If Application.Calculation = xlCalculationAutomatic Then
+Calc = 1
+Else
+Calc = 0
+End If
+
+Application.Calculation = xlCalculationManual
+
+For Each Sheet In wk.Sheets
+    If Sheet.Visible = True Then i = i + 1
+Next
+
+
+If i > 1 Then
+    MsgBox "The workbook has more than a sheet!" & vbCr & "Keep only the base and try again.", vbExclamation, "Erreur"
+    End
+End If
+
+' Récupère le taux de write off std
+
+Dim w_rate As Variant
+w_rate = 20
+
+Dim flag As Integer
+flag = 0
+
+While flag = 0
+    w_rate = InputBox("Enter the write-off rate vs. gross rate you want to apply in percentage without the % character (ex: 25 for 25%)." & vbCr & vbCr & "Otherwise enter 0 to skip.", "Write-off rate", 25)
+    If IsNumeric(w_rate) Then
+        If Abs(w_rate) < 100 Then
+            flag = 1
+        End If
+    End If
+    If w_rate = vbNullString Then
+        End
+    End If
+Wend
+
+w_rate = w_rate / 100  'Pour avoir le discount rate en pourcentage en décimal dans les calculs.
+
+
+' Unmerge les cellules
+    Cells.Select
+    Selection.UnMerge
+    
+' Définition des variables
+
+Dim c_job As Integer
+c_job = find_colonne("Job")
+Dim c_rank As Integer
+c_rank = find_colonne("Rank")
+Dim c_ressource As Integer
+c_ressource = find_colonne("Resource")
+Dim c_date As Integer
+c_date = find_colonne("Date")
+Dim c_cumulated As Integer
+c_cumulated = find_colonne_2("Hour", "Cumulated")
+Dim c_gross As Integer
+c_gross = find_colonne_3("Gross Fees", "Cumulated")
+Dim c_net As Integer
+c_net = find_colonne_4("Net Fees", "Cumulated")
+Dim l_debut As Integer
+l_debut = 3
+Dim l_last As Integer
+
+Dim ws_base As Worksheet
+Set ws_base = wk.Worksheets(1)
+ws_base.Name = "Base"
+
+' Définition de la dernière ligne
+i = 1
+Do While Cells(i, 1).Value <> "Total"
+    i = i + 1
+Loop
+l_last = i
+
+' Définition de la première et dernière date
+Dim date_debut As Date
+Dim date_fin As Date
+
+i = 1
+Do While i < l_last And Not IsDate(Cells(i, c_date).Value)
+    i = i + 1
+Loop
+
+date_debut = Cells(i, c_date).Value
+date_fin = Cells(i, c_date).Value
+
+Do While i < l_last
+    If IsDate(Cells(i, c_date).Value) Then
+        If Cells(i, c_date).Value < date_debut Then
+            date_debut = Cells(i, c_date).Value
+        End If
+        If Cells(i, c_date).Value > date_fin Then
+            date_fin = Cells(i, c_date).Value
+        End If
+    End If
+    i = i + 1
+Loop
+
+'Place les noms & grades des consultants dans toutes les lignes de la base de temps 8A report
+ws_base.Range(Cells(l_debut, c_rank), Cells(l_last, c_ressource)).Select
+Selection.SpecialCells(xlCellTypeBlanks).Select
+Selection.Value = "=R[-1]C"
+
+
+'Rempli le tableau avec les noms des consultants
+
+Dim ws_output As Worksheet
+Set ws_output = wk.Sheets.Add(After:=Sheets(Worksheets.Count))
+ws_output.Name = "Output"
+Dim p As Integer
+p = 5
+
+For m = l_debut To l_last
+    If ws_base.Cells(m, c_ressource).Value <> "" And ws_base.Cells(m, c_ressource).Value <> "Total" Then
+    ws_output.Cells(p, 1).Value = ws_base.Cells(m, c_ressource).Value
+    ws_output.Cells(p, 2).Value = ws_base.Cells(m, c_ressource).Value
+    ws_output.Cells(p, 3).Value = ws_base.Cells(m, c_rank).Value
+    p = p + 1
+    End If
+Next m
+
+Dim nb_consultants As Integer
+nb_consultants = 0
+
+k = 5
+Do While ws_output.Cells(k, 2) <> ""
+ k = k + 1
+ nb_consultants = nb_consultants + 1
+Loop
+
+'met le grade de chaque consultant
+
+Dim ligne As Integer
+
+For q = 5 To 5 + nb_consultants - 1
+    Select Case ws_output.Cells(q, 3).Value
+    Case "STA"
+        ws_output.Cells(q, 4).Value = 1
+    Case "A1"
+        ws_output.Cells(q, 4).Value = 2
+    Case "A2"
+        ws_output.Cells(q, 4).Value = 3
+    Case "S1"
+        ws_output.Cells(q, 4).Value = 4
+    Case "S2"
+        ws_output.Cells(q, 4).Value = 5
+    Case "S3"
+        ws_output.Cells(q, 4).Value = 6
+    Case "M1"
+        ws_output.Cells(q, 4).Value = 7
+    Case "M2"
+        ws_output.Cells(q, 4).Value = 8
+    Case "M3"
+        ws_output.Cells(q, 4).Value = 9
+    Case "SM1"
+        ws_output.Cells(q, 4).Value = 10
+    Case "SM2"
+        ws_output.Cells(q, 4).Value = 11
+    Case "D1"
+        ws_output.Cells(q, 4).Value = 12
+    Case "D2"
+        ws_output.Cells(q, 4).Value = 13
+    Case "D3"
+        ws_output.Cells(q, 4).Value = 14
+    Case "P"
+        ws_output.Cells(q, 4).Value = 15
+    Case Else
+        ws_output.Cells(q, 4).Value = 0
+    End Select
+Next q
+
+    Range(ws_output.Cells(5, 1), ws_output.Cells(5 + nb_consultants - 1, 4)).Select
+    ActiveWorkbook.Worksheets("Output").Sort.SortFields.Clear
+    ActiveWorkbook.Worksheets("Output").Sort.SortFields.Add2 Key:=Range(ws_output.Cells(5, 4), ws_output.Cells(5 + nb_consultants - 1, 4)) _
+        , SortOn:=xlSortOnValues, Order:=xlDescending, DataOption:=xlSortNormal
+    With ActiveWorkbook.Worksheets("Output").Sort
+        .SetRange Range(ws_output.Cells(5, 1), ws_output.Cells(5 + nb_consultants - 1, 4))
+        .Header = xlGuess
+        .MatchCase = False
+        .Orientation = xlTopToBottom
+        .SortMethod = xlPinYin
+        .Apply
+    End With
+
+For q = 5 To 5 + nb_consultants - 1
+    ws_output.Cells(q, 4).Value = ""
+Next q
+
+
+ws_output.Range(Cells(5, 1), Cells(nb_consultants + 4, 3)).RemoveDuplicates Columns:=1, Header:=xlNo
+
+nb_consultants = 0
+k = 5
+Do While ws_output.Cells(k, 2) <> ""
+ k = k + 1
+ nb_consultants = nb_consultants + 1
+Loop
+
+'rempli les heures par semaine
+
+date_debut = lundi(date_debut)
+date_fin = lundi(date_fin)
+
+nbwk = DateDiff("ww", date_debut, date_fin)
+
+Dim date_var As Date
+date_var = date_debut
+
+ws_output.Activate
+
+For n = 5 To 5 + nb_consultants - 1
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = "=SUMIFS(Base!R" & l_debut & "C" & c_cumulated & ":R" & l_last & "C" & c_cumulated & _
+        ", Base!R" & l_debut & "C" & c_ressource & ":R" & l_last & "C" & c_ressource & ",RC1, Base!R" & _
+        l_debut & "C" & c_date & ":R" & l_last & "C" & c_date & ", "">=""&R3C, Base!R" & _
+        l_debut & "C" & c_date & ":R" & l_last & "C" & c_date & ", ""<""&R3C + 7)"
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+    ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+Next n
+
+i = 1
+For a = 4 To (4 + nbwk)
+    ws_output.Cells(4, a).Value = "Week " & CStr(i)
+    ws_output.Cells(3, a).Value = date_var
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(5, a), Cells(n - 1, a)).Address(False, False) & ")"
+    ws_output.Cells(n, a).NumberFormat = "#,##0_);-_);-_)"
+    ws_output.Cells(n, a).Select
+    date_var = date_var + 7
+    i = i + 1
+Next a
+
+ws_output.Cells(4, a).Value = "Hours"
+ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(5, a), Cells(n - 1, a)).Address(False, False) & ")"
+ws_output.Cells(n, 2).Value = "Number of hours as per 8A report"
+
+'mise en place du check sur le nombre d'heures
+ws_output.Cells(5 + nb_consultants, 7 + nbwk).Select
+ActiveCell.FormulaR1C1 = "=RC[-2]- Base!R" & l_last & "C" & c_cumulated & ""
+ActiveCell.NumberFormat = "#,##0.0;(#,##0.0);-"
+Call CheckFormatH
+    
+n = n + 1
+ws_output.Cells(n, 2).Value = "Cumulative hours"
+
+ws_output.Cells(n, 4).Formula = "=" & Cells(n - 1, 4).Address(False, False)
+
+For a = 5 To (4 + nbwk)
+    ws_output.Cells(n, a).Formula = "=sum(" & Cells(n, a - 1).Address(False, False) & "," & Cells(n - 1, a).Address(False, False) & ")"
+Next a
+
+ws_output.Range(Cells(n, 2), Cells(n, 4 + nbwk)).Font.Italic = True
+
+ws_output.Cells(4, 2).Value = "In #h"
+
+
+'Tableau les gross fees
+'Remise en place des noms & grades
+i = 0
+For k = (n + 3) To (n + 3 + nb_consultants - 1)
+    ws_output.Cells(k, 1).FormulaR1C1 = "=R[" & -k + 5 + i & "]C"
+    ws_output.Cells(k, 2).FormulaR1C1 = "=R[" & -k + 5 + i & "]C"
+    ws_output.Cells(k, 3).FormulaR1C1 = "=R[" & -k + 5 + i & "]C"
+    i = i + 1
+Next k
+
+ws_output.Cells(n + 3 + nb_consultants, 2).Value = "Total gross fees as per 8A Report"
+
+For n = 9 + nb_consultants To 8 + 2 * nb_consultants
+    date_var = date_debut
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = "=SUMIFS(Base!R" & l_debut & "C" & c_gross & ":R" & l_last & "C" & c_gross & _
+        ", Base!R" & l_debut & "C" & c_ressource & ":R" & l_last & "C" & c_ressource & ",RC1, Base!R" & _
+        l_debut & "C" & c_date & ":R" & l_last & "C" & c_date & ", "">=""&R3C, Base!R" & _
+        l_debut & "C" & c_date & ":R" & l_last & "C" & c_date & ", ""<""&R3C + 7)"
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+Next n
+
+ws_output.Activate
+i = 1
+
+'inscription du numéro de semaine dans l'en-tête de tableau des gross fees et du total de gross fees
+For a = 4 To (4 + nbwk + 1)
+    ws_output.Cells(8 + nb_consultants, a).Value = "Week " & CStr(i)
+    i = i + 1
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(9 + nb_consultants, a), Cells(8 + 2 * nb_consultants, a)).Address(False, False) & ")"
+Next a
+
+'mise en place du check sur le budget 8A Report
+ws_output.Cells(9 + 2 * nb_consultants, 7 + nbwk).Select
+ActiveCell.FormulaR1C1 = "=RC[-2]- Base!R" & l_last & "C" & c_gross & ""
+ActiveCell.NumberFormat = "#,##0.0;(#,##0.0);-"
+Call CheckFormatH
+
+ws_output.Cells(8 + nb_consultants, a - 1).Value = "Gross fees"
+ws_output.Cells(8 + nb_consultants, 2).Value = "In €"
+
+n = n + 1
+
+ws_output.Cells(n, 2).Value = "Cumulative gross fees"
+
+ws_output.Cells(n, 4).Formula = "=" & Cells(n - 1, 4).Address(False, False)
+
+For a = 5 To (4 + nbwk)
+    ws_output.Cells(n, a).Formula = "=sum(" & Cells(n, a - 1).Address(False, False) & "," & Cells(n - 1, a).Address(False, False) & ")"
+Next a
+
+ws_output.Range(Cells(n, 2), Cells(n, 4 + nbwk)).Font.Italic = True
+
+'rempli les net fees accounting par semaine
+
+i = 0
+For k = (n + 3) To (n + 3 + nb_consultants - 1)
+    ws_output.Cells(k, 1).Value = "=R[" & -k + 5 + i & "]C"
+    ws_output.Cells(k, 2).Value = "=R[" & -k + 5 + i & "]C"
+    ws_output.Cells(k, 3).Value = "=R[" & -k + 5 + i & "]C"
+    i = i + 1
+Next k
+
+ws_output.Cells(n + 3 + nb_consultants, 2).Value = "Total net fees as per accounting"
+
+For n = 13 + 2 * nb_consultants To 12 + 3 * nb_consultants
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = "=SUMIFS(Base!R" & l_debut & "C" & c_net & ":R" & l_last & "C" & c_net & _
+        ", Base!R" & l_debut & "C" & c_ressource & ":R" & l_last & "C" & c_ressource & ",RC1, Base!R" & _
+        l_debut & "C" & c_date & ":R" & l_last & "C" & c_date & ", "">=""&R3C, Base!R" & _
+        l_debut & "C" & c_date & ":R" & l_last & "C" & c_date & ", ""<""&R3C + 7)"
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+Next n
+
+ws_output.Activate
+i = 1
+
+For a = 4 To (4 + nbwk + 1)
+    ws_output.Cells(12 + 2 * nb_consultants, a).Value = "Week " & CStr(i)
+    i = i + 1
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(13 + 2 * nb_consultants, a), Cells(12 + 3 * nb_consultants, a)).Address(False, False) & ")"
+Next a
+
+ws_output.Cells(12 + 2 * nb_consultants, a - 1).Value = "Net fees"
+ws_output.Cells(12 + 2 * nb_consultants, 2).Value = "In €"
+
+n = n + 1
+
+ws_output.Cells(n, 2).Value = "Cumulative net accounting fees"
+
+ws_output.Cells(n, 4).Formula = "=" & Cells(n - 1, 4).Address(False, False)
+
+For a = 5 To (4 + nbwk)
+    ws_output.Cells(n, a).Formula = "=sum(" & Cells(n, a - 1).Address(False, False) & "," & Cells(n - 1, a).Address(False, False) & ")"
+Next a
+
+ws_output.Cells(n + 1, 2).Value = "Accounting discount rate:"
+ws_output.Cells(n + 1, 5 + nbwk).FormulaR1C1 = "=IFERROR(1-(R[-2]C/R[" & -(nb_consultants + 6) & "]C),""n.a."")"
+ws_output.Range(Cells(n + 1, 2), Cells(n + 1, 5 + nbwk)).NumberFormat = "#0.0%"
+ws_output.Range(Cells(n, 2), Cells(n + 1, 5 + nbwk)).Font.Italic = True
+
+'mise en place du check sur le budget 8A Report as per accounting
+ws_output.Cells(n - 1, 7 + nbwk).Select
+ActiveCell.FormulaR1C1 = "=RC[-2]- Base!R" & l_last & "C" & c_net & ""
+ActiveCell.NumberFormat = "#,##0.0;(#,##0.0);-"
+Call CheckFormatH
+
+Calculate
+
+'rempli les theoretical gross fees per person
+'Reprend les noms & grades
+i = 0
+For k = (n + 4) To (n + 4 + nb_consultants - 1)
+    ws_output.Cells(k, 2).FormulaR1C1 = "=R[" & -k + 5 + i & "]C"
+    ws_output.Cells(k, 3).FormulaR1C1 = "=R[" & -k + 5 + i & "]C"
+    i = i + 1
+Next k
+
+
+ws_output.Cells(n + 4 + nb_consultants, 2).Value = "Gross fees per resource"
+
+For n = 18 + 3 * nb_consultants To 17 + 4 * nb_consultants
+    For m = 4 To (4 + nbwk)
+        If Cells(n - 13 - 3 * nb_consultants, m) = 0 Then
+            ws_output.Cells(n, m).Value = 0
+            ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+        Else
+        ws_output.Cells(n, m).Formula = Cells(n - 9 - 2 * nb_consultants, m) / Cells(n - 13 - 3 * nb_consultants, m)
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+        End If
+    Next m
+Next n
+
+i = 1
+For a = 4 To (4 + nbwk)
+    ws_output.Cells(17 + 3 * nb_consultants, a).Value = "Week " & CStr(i)
+    i = i + 1
+Next a
+
+ws_output.Cells(17 + 3 * nb_consultants, 2).Value = "In €/h"
+
+n = n + 2
+
+ws_output.Cells(n, 2).Value = "Please adjust below the number of hours per resource, if needed, in order to adjust output gross and net fees"
+
+'rempli les heures par semaine à modifier par l'utilisateur (de base 0)
+
+'Reprend les noms & grades
+i = 0
+For k = (n + 3) To (n + 3 + nb_consultants - 1)
+    ws_output.Cells(k, 1).Value = Cells(5 + i, 1).Value
+    ws_output.Cells(k, 2).Value = Cells(5 + i, 2).Value
+    ws_output.Cells(k, 3).Value = Cells(5 + i, 3).Value
+    i = i + 1
+Next k
+
+For n = 23 + 4 * nb_consultants To 22 + 5 * nb_consultants
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = 0
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);(#,##0);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+Next n
+
+i = 1
+For a = 4 To (4 + nbwk)
+    ws_output.Cells(22 + 4 * nb_consultants, a).Value = "Week " & CStr(i)
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(n - nb_consultants, a), Cells(n - 1, a)).Address(False, False) & ")"
+    date_var = date_var + 7
+    i = i + 1
+
+Next a
+
+ws_output.Cells(n - nb_consultants - 1, a).Value = "Hours"
+ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(n - nb_consultants, a), Cells(n - 1, a)).Address(False, False) & ")"
+ws_output.Cells(n, 2).Value = "Number of hours to be adjusted"
+  
+n = n + 1
+
+
+ws_output.Cells(n - nb_consultants - 2, 2).Value = "In #h"
+
+
+'rempli les heures par semaine modifiées par l'utilisateur
+
+'Reprend les noms & grades
+i = 0
+For k = (n + 2) To (n + 2 + nb_consultants - 1)
+    ws_output.Cells(k, 1).Value = Cells(5 + i, 1).Value
+    ws_output.Cells(k, 2).Value = Cells(5 + i, 2).Value
+    ws_output.Cells(k, 3).Value = Cells(5 + i, 3).Value
+    i = i + 1
+Next k
+
+For n = 26 + 5 * nb_consultants To 25 + 6 * nb_consultants
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = "=R[" & -21 - 5 * nb_consultants & "]C + R[" & -3 - nb_consultants & "]C"
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+Next n
+
+i = 1
+For a = 4 To (4 + nbwk)
+    ws_output.Cells(25 + 5 * nb_consultants, a).Value = "Week " & CStr(i)
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(n - nb_consultants, a), Cells(n - 1, a)).Address(False, False) & ")"
+    date_var = date_var + 7
+    i = i + 1
+
+Next a
+
+ws_output.Cells(n - nb_consultants - 1, a).Value = "Hours"
+ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(n - nb_consultants, a), Cells(n - 1, a)).Address(False, False) & ")"
+ws_output.Cells(n, 2).Value = "Number of hours"
+
+'mise en place du check sur le nombre d'heures
+ws_output.Cells(n, 7 + nbwk).Select
+ActiveCell.FormulaR1C1 = "=RC[-2]- R[" & -21 - 5 * nb_consultants & "]C[-2]"
+Call CheckFormatH
+    
+n = n + 1
+ws_output.Cells(n, 2).Value = "Cumulative hours"
+
+ws_output.Cells(n, 4).Formula = "=" & Cells(n - 1, 4).Address(False, False)
+
+For a = 5 To (4 + nbwk)
+    ws_output.Cells(n, a).Formula = "=sum(" & Cells(n, a - 1).Address(False, False) & "," & Cells(n - 1, a).Address(False, False) & ")"
+Next a
+
+ws_output.Range(Cells(n, 2), Cells(n, 4 + nbwk)).Font.Italic = True
+
+ws_output.Cells(n - nb_consultants - 2, 2).Value = "In #h"
+
+
+
+'rempli les net fees par semaines before write off
+'Reprend les noms & grades
+i = 0
+For k = (n + 3) To (n + 3 + nb_consultants - 1)
+    ws_output.Cells(k, 2).FormulaR1C1 = "=R[" & -nb_consultants - 4 & "]C"
+    ws_output.Cells(k, 3).FormulaR1C1 = "=R[" & -nb_consultants - 4 & "]C"
+    i = i + 1
+Next k
+
+ 
+ws_output.Cells(n + 3 + nb_consultants, 2).Value = "Total Gross fees"
+
+For n = 30 + 6 * nb_consultants To 29 + 7 * nb_consultants
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = "=R[" & -4 - nb_consultants & "]C*R[" & -12 - (3 * nb_consultants) & "]C"
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+Next n
+
+i = 1
+
+For a = 4 To (4 + nbwk + 1)
+    ws_output.Cells(29 + 6 * nb_consultants, a).Value = "Week " & CStr(i)
+    i = i + 1
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(n - nb_consultants, a), Cells(n - 1, a)).Address(False, False) & ")"
+Next a
+
+ws_output.Cells(n - nb_consultants - 1, a - 1).Value = "Gross fees"
+ws_output.Cells(n - nb_consultants - 1, 2).Value = "In €"
+
+n = n + 1
+
+ws_output.Cells(n, 2).Value = "Cumulative gross fees"
+
+ws_output.Cells(n, 4).Formula = "=" & Cells(n - 1, 4).Address(False, False)
+
+For a = 5 To (4 + nbwk)
+    ws_output.Cells(n, a).Formula = "=sum(" & Cells(n, a - 1).Address(False, False) & "," & Cells(n - 1, a).Address(False, False) & ")"
+Next a
+
+ws_output.Range(Cells(n, 2), Cells(n, 4 + nbwk)).Font.Italic = True
+
+'rempli les net fees par semaines after write off
+'Reprend les noms & grades
+i = 0
+For k = (n + 3) To (n + 3 + nb_consultants - 1)
+    ws_output.Cells(k, 2).FormulaR1C1 = "=R[" & -nb_consultants - 4 & "]C"
+    ws_output.Cells(k, 3).FormulaR1C1 = "=R[" & -nb_consultants - 4 & "]C"
+    i = i + 1
+Next k
+
+ws_output.Cells(n + 3 + nb_consultants, 2).Value = "Total net fees"
+
+For n = 34 + 7 * nb_consultants To 33 + 8 * nb_consultants
+    For m = 4 To (4 + nbwk)
+        ws_output.Cells(n, m).Value = "=R[" & -4 - nb_consultants & "]C * (1-R2C3)"
+        ws_output.Cells(n, m).NumberFormat = "#,##0_);-_);-_)"
+    Next m
+    ws_output.Cells(n, m).Formula = "=sum(" & Range(Cells(n, 4), Cells(n, 4 + nbwk)).Address(False, False) & ")"
+Next n
+
+i = 1
+
+For a = 4 To (4 + nbwk + 1)
+    ws_output.Cells(n - nb_consultants - 1, a).Value = "Week " & CStr(i)
+    i = i + 1
+    ws_output.Cells(n, a).Formula = "=sum(" & Range(Cells(n - nb_consultants, a), Cells(n - 1, a)).Address(False, False) & ")"
+    ws_output.Cells(n, a).NumberFormat = "#,##0_);-_);-_)"
+Next a
+
+ws_output.Cells(n - nb_consultants - 1, a - 1).Value = "Net fees"
+ws_output.Cells(n - nb_consultants - 1, 2).Value = "In €"
+
+n = n + 1
+
+ws_output.Cells(n, 2).Value = "Cumulative net fees"
+
+ws_output.Cells(n, 4).Formula = "=" & Cells(n - 1, 4).Address(False, False)
+
+
+For a = 5 To (4 + nbwk)
+    ws_output.Cells(n, a).Formula = "=sum(" & Cells(n, a - 1).Address(False, False) & "," & Cells(n - 1, a).Address(False, False) & ")"
+Next a
+
+ws_output.Cells(n + 1, 2).Value = "Actual write-off rate:"
+ws_output.Cells(n + 1, 5 + nbwk).FormulaR1C1 = "=IFERROR(1-(R[-2]C/R[" & -(nb_consultants) - 6 & "]C),""n.a."")"
+ws_output.Cells(n + 1, 5 + nbwk).NumberFormat = "#0.0%"
+
+ws_output.Range(Cells(n, 2), Cells(n + 1, 5 + nbwk)).Font.Italic = True
+
+
+'rempli les . par des espaces et autres mises en forme
+
+ws_output.Range("B:B").Select
+    Selection.Replace What:=".", Replacement:=" ", LookAt:=xlPart, _
+        SearchOrder:=xlByRows, MatchCase:=False, SearchFormat:=False, _
+        ReplaceFormat:=False
+    
+    ws_output.Cells.Select
+    With Selection.Font
+        .Color = RGB(25, 46, 78)
+        .Name = "Neue Haas Grotesk Display Pro"
+        .Size = 10
+    End With
+    
+    ActiveWindow.Zoom = 100
+ 
+
+ws_output.Range(Cells(3, 4), Cells(36 + 8 * nb_consultants, a)).HorizontalAlignment = xlRight
+
+ ActiveWindow.DisplayGridlines = False
+Range(Cells(5, 2), Cells(5 + nb_consultants, 2)).Columns.AutoFit
+
+
+'Mise en forme des titres
+ws_output.Range(Cells(3, 2), Cells(4, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(4, 2), Cells(4, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(4, 2), Cells(4, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(4, 2), Cells(4, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(4, 2), Cells(4, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(8 + nb_consultants, 2), Cells(8 + nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(8 + nb_consultants, 2), Cells(8 + nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(8 + nb_consultants, 2), Cells(8 + nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(8 + nb_consultants, 2), Cells(8 + nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(8 + nb_consultants, 2), Cells(8 + nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(12 + 2 * nb_consultants, 2), Cells(12 + 2 * nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(12 + 2 * nb_consultants, 2), Cells(12 + 2 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(12 + 2 * nb_consultants, 2), Cells(12 + 2 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(12 + 2 * nb_consultants, 2), Cells(12 + 2 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(12 + 2 * nb_consultants, 2), Cells(12 + 2 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(17 + 3 * nb_consultants, 2), Cells(17 + 3 * nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(17 + 3 * nb_consultants, 2), Cells(17 + 3 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(17 + 3 * nb_consultants, 2), Cells(17 + 3 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(17 + 3 * nb_consultants, 2), Cells(17 + 3 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(17 + 3 * nb_consultants, 2), Cells(17 + 3 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(22 + 4 * nb_consultants, 2), Cells(22 + 4 * nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(22 + 4 * nb_consultants, 2), Cells(22 + 4 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(22 + 4 * nb_consultants, 2), Cells(22 + 4 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(22 + 4 * nb_consultants, 2), Cells(22 + 4 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(22 + 4 * nb_consultants, 2), Cells(22 + 4 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(25 + 5 * nb_consultants, 2), Cells(25 + 5 * nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(25 + 5 * nb_consultants, 2), Cells(25 + 5 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(25 + 5 * nb_consultants, 2), Cells(25 + 5 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(25 + 5 * nb_consultants, 2), Cells(25 + 5 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(25 + 5 * nb_consultants, 2), Cells(25 + 5 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(29 + 6 * nb_consultants, 2), Cells(29 + 6 * nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(29 + 6 * nb_consultants, 2), Cells(29 + 6 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(29 + 6 * nb_consultants, 2), Cells(29 + 6 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(29 + 6 * nb_consultants, 2), Cells(29 + 6 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(29 + 6 * nb_consultants, 2), Cells(29 + 6 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+ws_output.Range(Cells(33 + 7 * nb_consultants, 2), Cells(33 + 7 * nb_consultants, nbwk + 5)).Font.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(33 + 7 * nb_consultants, 2), Cells(33 + 7 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(33 + 7 * nb_consultants, 2), Cells(33 + 7 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+ws_output.Range(Cells(33 + 7 * nb_consultants, 2), Cells(33 + 7 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlThin
+ws_output.Range(Cells(33 + 7 * nb_consultants, 2), Cells(33 + 7 * nb_consultants, nbwk + 5)).Borders(xlEdgeBottom).LineStyle = xlContinuous
+
+
+
+'lignes des résultats
+
+ws_output.Range(Cells(5 + nb_consultants, 2), Cells(5 + nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(5 + nb_consultants, 2), Cells(5 + nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(5 + nb_consultants, 2), Cells(5 + nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(9 + 2 * nb_consultants, 2), Cells(9 + 2 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(9 + 2 * nb_consultants, 2), Cells(9 + 2 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(9 + 2 * nb_consultants, 2), Cells(9 + 2 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(13 + 3 * nb_consultants, 2), Cells(13 + 3 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(13 + 3 * nb_consultants, 2), Cells(13 + 3 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(13 + 3 * nb_consultants, 2), Cells(13 + 3 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(18 + 4 * nb_consultants, 2), Cells(18 + 4 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(18 + 4 * nb_consultants, 2), Cells(18 + 4 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(18 + 4 * nb_consultants, 2), Cells(18 + 4 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(23 + 5 * nb_consultants, 2), Cells(23 + 5 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(23 + 5 * nb_consultants, 2), Cells(23 + 5 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(23 + 5 * nb_consultants, 2), Cells(23 + 5 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(26 + 6 * nb_consultants, 2), Cells(26 + 6 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(26 + 6 * nb_consultants, 2), Cells(26 + 6 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(26 + 6 * nb_consultants, 2), Cells(26 + 6 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(30 + 7 * nb_consultants, 2), Cells(30 + 7 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(30 + 7 * nb_consultants, 2), Cells(30 + 7 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(30 + 7 * nb_consultants, 2), Cells(30 + 7 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+ws_output.Range(Cells(34 + 8 * nb_consultants, 2), Cells(34 + 8 * nb_consultants, nbwk + 5)).Interior.Color = RGB(25, 46, 78)
+ws_output.Range(Cells(34 + 8 * nb_consultants, 2), Cells(34 + 8 * nb_consultants, nbwk + 5)).Font.Bold = True
+ws_output.Range(Cells(34 + 8 * nb_consultants, 2), Cells(34 + 8 * nb_consultants, nbwk + 5)).Font.Color = RGB(255, 255, 255)
+
+'ligne rouge distinction 8AReport vs tableaux de travail
+With ws_output.Range(Cells(4 * nb_consultants + 20, 2), Cells(4 * nb_consultants + 20, nbwk + 5))
+    .Interior.Color = RGB(120, 0, 27)
+    .Font.Bold = True
+    .Font.Color = RGB(255, 255, 255)
+End With
+
+For a = 3 To (4 + nbwk + 1)
+    ws_output.Columns(a).EntireColumn.AutoFit
+Next a
+
+Columns("A:A").ColumnWidth = 0.5
+Rows(37 + 8 * nb_consultants).RowHeight = 3
+
+With ws_output.Range(Cells(37 + 8 * nb_consultants, 2), Cells(37 + 8 * nb_consultants, nbwk + 5))
+    .Borders(xlEdgeBottom).Color = RGB(25, 46, 78)
+    .Borders(xlEdgeBottom).LineStyle = xlThin
+    .Borders(xlEdgeBottom).LineStyle = xlContinuous
+End With
+
+ws_output.Cells(1, 1).Value = ws_base.Cells(3, 1).Value
+ws_output.Cells(1, 1).Font.Bold = True
+ws_output.Cells(1, 1).Font.Color = RGB(25, 46, 78)
+ws_output.Cells(2, 1).Value = "Discount rate:"
+ws_output.Cells(2, 3).Value = w_rate
+ws_output.Cells(2, 3).NumberFormat = "#0%"
+
+
+ws_output.Range(Cells(4, nbwk + 5), Cells(36 + 8 * nb_consultants, nbwk + 5)).Select
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlDot
+        .Color = RGB(25, 46, 78)
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlDot
+        .Color = RGB(25, 46, 78)
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlDot
+        .Color = RGB(25, 46, 78)
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlDot
+        .Color = RGB(25, 46, 78)
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+
+If w_rate = 0 Then
+    ws_output.Range(Rows(11 + 2 * nb_consultants), Rows(14 + 3 * nb_consultants)).Delete Shift:=xlUp
+End If
+
+ws_output.Cells(1, 1).Select
+
+If Calc = 1 Then
+Application.Calculation = xlCalculationAutomatic
+End If
+
+End Sub
+
+Function find_colonne(text As String) As Integer
+
+Dim i As Integer
+i = 1
+
+Do While i < 60 And Cells(2, i).Value <> text
+    i = i + 1
+Loop
+
+find_colonne = i
+
+
+End Function
+
+Function find_colonne_2(text As String, text_2 As String) As Integer
+
+Dim i As Integer
+i = 1
+
+Do While i < 60 And Cells(2, i).Value <> text And Cells(1, i).Value <> text_2
+    i = i + 1
+Loop
+
+find_colonne_2 = i
+
+End Function
+
+Function find_colonne_3(text As String, text_2 As String) As Integer
+
+Dim i As Integer
+i = 2
+
+Do While i < 60 And Cells(2, i).Value <> text Or Cells(1, i - 1).Value <> text_2
+    i = i + 1
+Loop
+
+find_colonne_3 = i
+
+End Function
+
+Function find_colonne_4(text As String, text_2 As String) As Integer
+
+Dim i As Integer
+i = 3
+
+Do While i < 60 And Cells(2, i).Value <> text Or Cells(1, i - 2).Value <> text_2
+    i = i + 1
+Loop
+
+find_colonne_4 = i
+
+End Function
+
+Function lundi(jour As Date) As Date
+
+Dim output As Date
+
+Select Case Weekday(jour)
+    Case 1
+        output = jour - 6
+    Case 2
+        output = jour
+    Case 3
+        output = jour - 1
+    Case 4
+        output = jour - 2
+    Case 5
+        output = jour - 3
+    Case 6
+        output = jour - 4
+    Case 7
+        output = jour - 5
+End Select
+
+lundi = output
+
+End Function
+
