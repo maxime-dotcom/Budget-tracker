@@ -92,3 +92,47 @@ Public Sub NoDecimals(Optional CellRange As Range = Nothing)
     If CellRange Is Nothing Then Set CellRange = Selection
     CellRange.NumberFormat = "#,##0_);(#,##0);""-""_)"
 End Sub
+' Summary: Apply width presets based on parameter sheet sizing categories.
+' Used by: AdjustColumnWidths, FormatMinimalSheet.
+Sub ACW(Optional TargetColumns As Range = Nothing, Optional SizeCategory As Integer = 2)
+    Dim col As Range
+    Dim FixedWidth As Double
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Sheets("8A_Team_ParametersNYC")
+
+    If TargetColumns Is Nothing Then Set TargetColumns = Selection
+
+    Select Case SizeCategory
+        Case 1: FixedWidth = ws.Range("C7").Value
+        Case 2: FixedWidth = ws.Range("C6").Value
+        Case 3: FixedWidth = 35.14
+        Case Else: FixedWidth = 10
+    End Select
+
+    For Each col In TargetColumns.Columns
+        col.ColumnWidth = FixedWidth
+    Next col
+End Sub
+
+Sub ARH(Optional TargetRows As Range = Nothing, Optional SizeCategory As Integer = 2)
+    Dim row As Range
+    Dim FixedHeight As Double
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Sheets("8A_Team_ParametersNYC") ' Feuille où se trouve la valeur de référence
+
+    ' Si aucun TargetRows n'est spécifié, utiliser la sélection actuelle
+    If TargetRows Is Nothing Then Set TargetRows = Selection
+
+    ' Définir la hauteur en fonction de la catégorie
+    Select Case SizeCategory
+        Case 1: FixedHeight = ws.Range("C5").Value ' Petit
+        Case 2: FixedHeight = ws.Range("C8").Value ' Moyen
+        Case 3: FixedHeight = 25 ' Grand
+        Case Else: FixedHeight = 10 ' Défaut à moyen si valeur incorrecte
+    End Select
+
+    ' Appliquer la hauteur aux lignes
+    For Each row In TargetRows.Rows
+        row.RowHeight = FixedHeight
+    Next row
+End Sub
