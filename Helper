@@ -19,3 +19,76 @@ errorHandler:
 errorHandler.Show
 
 End Sub
+Sub reun(Optional CellRange As Range)
+    If CellRange Is Nothing Then Set CellRange = Selection
+    If CellRange Is Nothing Or CellRange.Cells.Count = 0 Then Exit Sub
+    If CellRange.Areas.Count > 1 Then
+        MsgBox "The macro only works on continuous ranges.", vbExclamation
+        Exit Sub
+    End If
+
+    With CellRange
+        .Interior.Color = RGB(220, 230, 243)
+        .Font.Bold = True
+        .Font.Color = RGB(14, 26, 44)
+        .RowHeight = 14.5
+    End With
+
+    CellRange.Cells(1, 1).HorizontalAlignment = xlLeft
+
+    If CellRange.Cells.Count > 1 And CellRange.Columns.Count > 1 Then
+        CellRange.Offset(0, 1).Resize(CellRange.Rows.Count, CellRange.Columns.Count - 1).HorizontalAlignment = xlRight
+    End If
+End Sub
+
+' Summary: Style the row 2 header band with medium blue and contrasting text.
+' Used by: FormatFullSheet, FormatSmartSheet.
+Sub rdeux(Optional CellRange As Range)
+    If CellRange Is Nothing Then Set CellRange = Selection
+    If CellRange Is Nothing Or CellRange.Cells.Count = 0 Then Exit Sub
+    If CellRange.Areas.Count > 1 Then
+        MsgBox "The macro only works on continuous ranges.", vbExclamation
+        Exit Sub
+    End If
+
+    With CellRange
+        .Interior.Color = RGB(62, 140, 255)
+        .Font.Bold = True
+        .Font.Color = RGB(255, 255, 255)
+        .RowHeight = 14.5
+    End With
+
+    CellRange.Cells(1, 1).HorizontalAlignment = xlLeft
+
+    If CellRange.Cells.Count > 1 And CellRange.Columns.Count > 1 Then
+        CellRange.Offset(0, 1).Resize(CellRange.Rows.Count, CellRange.Columns.Count - 1).HorizontalAlignment = xlRight
+    End If
+End Sub
+
+' Summary: Style the row 3 header band with dark blue fill for totals.
+' Used by: FormatFullSheet, FormatSmartSheet.
+Sub rtrois(Optional CellRange As Range)
+    If CellRange Is Nothing Then Set CellRange = Selection
+    If CellRange Is Nothing Or CellRange.Cells.Count = 0 Then Exit Sub
+    If CellRange.Areas.Count > 1 Then
+        MsgBox "The macro only works on continuous ranges.", vbExclamation
+        Exit Sub
+    End If
+
+    With CellRange
+        .Interior.Color = RGB(24, 46, 78)
+        .Font.Bold = True
+        .Font.Color = RGB(255, 255, 255)
+        .RowHeight = 14.5
+    End With
+
+    CellRange.Cells(1, 1).HorizontalAlignment = xlLeft
+
+    If CellRange.Cells.Count > 1 And CellRange.Columns.Count > 1 Then
+        CellRange.Offset(0, 1).Resize(CellRange.Rows.Count, CellRange.Columns.Count - 1).HorizontalAlignment = xlRight
+    End If
+End Sub
+Public Sub NoDecimals(Optional CellRange As Range = Nothing)
+    If CellRange Is Nothing Then Set CellRange = Selection
+    CellRange.NumberFormat = "#,##0_);(#,##0);""-""_)"
+End Sub
