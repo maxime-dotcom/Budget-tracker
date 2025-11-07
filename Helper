@@ -1,0 +1,21 @@
+Sub CheckFormatH()
+
+Application.ScreenUpdating = False
+
+On Error GoTo errorHandler
+
+Selection.FormatConditions.Add Type:=xlCellValue, Operator:=xlEqual, Formula1:="=0"
+Selection.FormatConditions(1).Interior.Color = RGB(198, 239, 206)
+Selection.FormatConditions(1).Font.Color = RGB(0, 97, 0)
+'Add second rule
+Selection.FormatConditions.Add Type:=xlCellValue, Operator:=xlNotEqual, Formula1:="=0"
+Selection.FormatConditions(2).Interior.Color = RGB(255, 199, 206)
+Selection.FormatConditions(2).Font.Color = RGB(156, 0, 0)
+
+Selection.HorizontalAlignment = xlCenter
+Exit Sub
+
+errorHandler:
+errorHandler.Show
+
+End Sub
